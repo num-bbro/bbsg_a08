@@ -8,6 +8,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let a2 = env::args().nth(2).unwrap_or("?".to_string());
     let a3 = env::args().nth(3).unwrap_or("docgen".to_string());
     match a1.as_str() {
+
         "X1" => bbsg_a08::stx1::stage_x1()?,
         "X2" => bbsg_a08::stx2::stage_02()?,
         "CM2" => bbsg_a08::utl3::excel_cmd2()?,
