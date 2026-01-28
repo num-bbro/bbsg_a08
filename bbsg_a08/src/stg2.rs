@@ -20,7 +20,7 @@ pub const EV_CLAIM_RATE: f32 = 1.0;
 // EV truck
 //pub const ET_CHG_POW_KW: f32 = 300f32;
 pub const ET_CHG_POW_KW: f32 = 200f32;
-pub const ET_DAY_CHG_HOUR: f32 = 2.0;
+pub const ET_DAY_CHG_HOUR: f32 = 4.0;
 pub const ET_CLAIM_RATE: f32 = 0.6;
 
 // EV bike
@@ -1322,7 +1322,7 @@ pub fn ass_calc(sbas: &mut PeaAssVar) -> Result<(), Box<dyn Error>> {
         ubt_sav *= 1.0 + ENERGY_GRW_RATE;
         all_sel *= 1.0 + ENERGY_GRW_RATE;
         //all_sel = 0.0;
-        let (los, tr, ubt, all) = if i < 3 {
+        let (los, tr, ubt, all) = if i < 0 {
             (0.0, 0.0, 0.0, 0.0)
         } else {
             (los_sav, tr_sav, ubt_sav, all_sel)

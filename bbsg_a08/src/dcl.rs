@@ -12,11 +12,13 @@ pub const SSHOW_YEAR_BEG: usize = 2025;
 pub const SSHOW_YEAR_END: usize = 2039;
 //pub const EV_AT_2050: f32 = 6_000_000f32;
 // personal car, personal truck, taxi
-pub const EV_AT_2050: f32 = 11_734_944.0 * 0.5 + 7_109_198.0 * 0.5 + 81_296.0 * 0.5;
+pub const EV_AT_2050: f32 = (11_734_944.0 + 7_109_198.0 + 81_296.0) * 0.5;
 //pub const ET_AT_2050: f32 = 1_371_464.0 * 0.5;
-pub const ET_AT_2050: f32 = 1_371_464.0 * 0.01;
+//pub const ET_AT_2050: f32 = 1_371_464.0 * 0.01;
+//pub const ET_AT_2050: f32 = 1_371_464.0 * 0.30;
+pub const ET_AT_2050: f32 = 1_371_464.0 * 0.50;
 // personal bike + taxi bike
-pub const EB_AT_2050: f32 = 22_490_445.0 * 0.5 + 133_298.0 * 0.5;
+pub const EB_AT_2050: f32 = (22_490_445.0 + 133_298.0) * 0.5;
 
 pub const EV_HR_DAY: f32 = 3.0;
 pub const EV_MWH_BAHT: f32 = 1000f32;

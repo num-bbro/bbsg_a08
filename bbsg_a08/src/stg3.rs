@@ -22,10 +22,11 @@ pub const MODEL_ENTRY_COST: f32 = 1000f32;
 pub const RENEW_HOUR_PER_DAY: f32 = 4.0;
 pub const RENEW_SAVE_PER_MWH: f32 = 500f32;
 pub const PEAK_POWER_RATIO: f32 = 0.3;
-pub const UNBAL_LOSS_CLAIM_RATE: f32 = 0.6;
-pub const TRANS_REPL_CLAIM_RATE: f32 = 0.6;
-pub const UNBAL_REPL_CLAIM_RATE: f32 = 0.6;
-pub const NOTEC_LOSS_CLAIM_RATE: f32 = 0.6;
+
+pub const UNBAL_LOSS_CLAIM_RATE: f32 = 0.8;
+pub const TRANS_REPL_CLAIM_RATE: f32 = 0.8;
+pub const UNBAL_REPL_CLAIM_RATE: f32 = 0.8;
+pub const NOTEC_LOSS_CLAIM_RATE: f32 = 0.8;
 
 pub const NON_TECH_LOSS_RATIO: f32 = 0.02;
 //pub const UNBAL_HOUR_PER_DAY: f32 = 4.0;

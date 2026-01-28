@@ -11,7 +11,9 @@ use sglib04::geo4::PowerProdType;
 use std::collections::HashMap;
 use std::error::Error;
 
-pub const EV_CHG_PROF_KW: f32 = 0.42;
+//pub const EV_CHG_PROF_KW: f32 = 0.42;
+//pub const EV_CHG_PROF_KW: f32 = 1.0;
+pub const EV_CHG_PROF_KW: f32 = 1.2;
 
 pub const EV_CHG_POW_KW: f32 = 7.0;
 pub const EV_DAY_CHG_HOUR: f32 = 2.0;
@@ -20,8 +22,8 @@ pub const EV_CLAIM_RATE: f32 = 1.0;
 // EV truck
 //pub const ET_CHG_POW_KW: f32 = 300f32;
 pub const ET_CHG_POW_KW: f32 = 200f32;
-pub const ET_DAY_CHG_HOUR: f32 = 2.0;
-pub const ET_CLAIM_RATE: f32 = 0.6;
+pub const ET_DAY_CHG_HOUR: f32 = 4.0;
+pub const ET_CLAIM_RATE: f32 = 1.0;
 
 // EV bike
 //pub const EB_CHG_POW_KW: f32 = 0.2f32;
@@ -915,7 +917,7 @@ pub fn stage_02_b(assrw1: Vec<PeaAssVar>, tras_mx1: &PeaAssVar) -> Result<(), Bo
                         // everage charge 1.2 hour / day
                         // profit 0.42 baht per kwh
                         //
-                        let evbt = if i < 3 {
+                        let evbt = if i < 0 {
                             0f32
                         } else {
                             evno * EV_CHG_POW_KW
@@ -934,12 +936,12 @@ pub fn stage_02_b(assrw1: Vec<PeaAssVar>, tras_mx1: &PeaAssVar) -> Result<(), Bo
                     for (i, rt) in etsc.iter().enumerate() {
                         let etno = tras.v[VarType::ChgEtTr.tousz()].v * ET_AT_2050 * rt;
                         tras0.vy[VarType::NoEtTr.tousz()].push(etno);
-                        let etbt = if i < 3 {
+                        let etbt = if i < 0 {
                             0f32
                         } else {
                             etno * ET_CHG_POW_KW
                                 * ET_DAY_CHG_HOUR
-                                * EV_CHG_POW_KW
+                                * EV_CHG_PROF_KW
                                 * 365.0
                                 * ET_CLAIM_RATE
                         };
@@ -952,12 +954,12 @@ pub fn stage_02_b(assrw1: Vec<PeaAssVar>, tras_mx1: &PeaAssVar) -> Result<(), Bo
                     for (i, rt) in ebsc.iter().enumerate() {
                         let ebno = tras.v[VarType::ChgEbTr.tousz()].v * ET_AT_2050 * rt;
                         tras0.vy[VarType::NoEtTr.tousz()].push(ebno);
-                        let ebbt = if i < 3 {
+                        let ebbt = if i < 0 {
                             0f32
                         } else {
                             ebno * EB_CHG_POW_KW
                                 * EB_DAY_CHG_HOUR
-                                * EV_CHG_POW_KW
+                                * EV_CHG_PROF_KW
                                 * 365.0
                                 * EB_CLAIM_RATE
                         };
