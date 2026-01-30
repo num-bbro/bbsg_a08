@@ -1,5 +1,6 @@
 use bincode::{Decode, Encode};
 use phf_macros::phf_map;
+//use rkyv::{deserialize, rancor::Error, Archive, Deserialize, Serialize};
 use std::collections::HashMap;
 use std::collections::HashSet;
 use strum_macros::EnumIter;
@@ -185,6 +186,8 @@ pub enum MeterAccType {
 }
 
 #[derive(Encode, Decode, Debug, Clone, Default)]
+//#[derive(Encode, Decode, Debug, Clone, Default, Archive, Deserialize, Serialize, PartialEq)]
+//#[rkyv(compare(PartialEq), derive(Debug))]
 pub enum GridLevel {
     #[default]
     DisTrans,
@@ -194,6 +197,8 @@ pub enum GridLevel {
 }
 
 #[derive(Encode, Decode, Debug, Clone, Default)]
+//#[derive(Encode, Decode, Debug, Clone, Default, Archive, Deserialize, Serialize, PartialEq)]
+//#[rkyv(compare(PartialEq), derive(Debug))]
 pub enum SumType {
     #[default]
     Sum,
@@ -202,6 +207,8 @@ pub enum SumType {
 }
 
 #[derive(Encode, Decode, Debug, Clone, Default, EnumIter)]
+//#[derive( Encode, Decode, Debug, Clone, Default, Deserialize, Serialize, PartialEq, EnumIter,)]
+//#[rkyv(compare(PartialEq), derive(Debug))]
 pub enum VarType {
     #[default]
     None,
@@ -363,6 +370,8 @@ pub enum VarType {
 }
 
 #[derive(Encode, Decode, Debug, Clone, Default)]
+//#[derive(Encode, Decode, Debug, Clone, Default, Deserialize, Serialize, PartialEq)]
+//#[rkyv(compare(PartialEq), derive(Debug))]
 pub struct AssVar {
     pub v: f32,
     pub l: GridLevel,
@@ -372,6 +381,8 @@ pub struct AssVar {
 }
 
 #[derive(Encode, Decode, Debug, Clone, Default)]
+//#[rkyv(compare(PartialEq), derive(Debug))]
+//#[derive(Encode, Decode, Debug, Clone, Default, Deserialize, Serialize, PartialEq)]
 pub struct PeaAssVar {
     pub arid: String,
     pub pvid: String,
@@ -580,6 +591,8 @@ pub struct SubAssObj {
 }
 
 #[derive(Encode, Decode, PartialEq, Debug, Clone, Default)]
+//#[derive(Encode, Decode, Debug, Clone, Default, Deserialize, Serialize, PartialEq)]
+//#[rkyv(compare(PartialEq), derive(Debug))]
 pub struct AojObj {
     pub code: String,
     pub sht_name: String,

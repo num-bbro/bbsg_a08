@@ -72,13 +72,51 @@ use std::sync::Mutex;
 
 pub const BESS_EVPOW_MWH_MULT: f32 = 1.0;
 use crate::cst2::cst_reinvest;
+use crate::stg3::PEAK_POWER_RATIO;
 use crate::stg3::REINVEST_RATE;
+use crate::stg3::RENEW_HOUR_PER_DAY;
+use crate::stg3::RENEW_SAVE_PER_MWH;
 use sglib04::web1::ENERGY_GRW_RATE;
+use std::sync::mpsc;
+use std::thread;
+
+pub const PRV_LEVEL_FLDS: [usize; 2] = [VarType::NewCarReg as usize, VarType::Gpp as usize];
+
+pub const SUB_LEVEL_FLDS: [usize; 11] = [
+    VarType::NewCarReg as usize,
+    VarType::Gpp as usize,
+    VarType::MaxPosPowSub as usize,
+    VarType::MaxNegPowSub as usize,
+    VarType::VsppMv as usize,
+    VarType::SppHv as usize,
+    VarType::BigLotMv as usize,
+    VarType::BigLotHv as usize,
+    VarType::SubPowCap as usize,
+    VarType::SolarEnergy as usize,
+    VarType::PowTrSat as usize,
+];
+
+pub const FEED_LEVEL_FLDS: [usize; 13] = [
+    VarType::NewCarReg as usize,
+    VarType::Gpp as usize,
+    VarType::MaxPosPowSub as usize,
+    VarType::MaxNegPowSub as usize,
+    VarType::VsppMv as usize,
+    VarType::SppHv as usize,
+    VarType::BigLotMv as usize,
+    VarType::BigLotHv as usize,
+    VarType::SubPowCap as usize,
+    VarType::SolarEnergy as usize,
+    VarType::PowTrSat as usize,
+    VarType::MaxPosPowFeeder as usize,
+    VarType::MaxNegPowFeeder as usize,
+];
 
 /// read 000_pea.bin
 /// read SSS.bin
-pub fn stage_02() -> Result<(), Box<dyn Error>> {
+pub fn stage_02(coreno: usize) -> Result<(), Box<dyn Error>> {
     println!("===== STAGE 2 =====");
+    let tik = std::time::SystemTime::now();
     let buf = std::fs::read(format!("{DNM}/000_pea.bin")).unwrap();
     let (pea, _): (Pea, usize) =
         bincode::decode_from_slice(&buf[..], bincode::config::standard()).unwrap();
@@ -89,51 +127,20 @@ pub fn stage_02() -> Result<(), Box<dyn Error>> {
     //let mut tras_mx2 = PeaAssVar::default();
     let mut tras_mx1 = PeaAssVar::from(0u64);
     let mut assrw1 = Vec::<PeaAssVar>::new();
-    stage_02_1(&aids, &pea, &mut assrw1, &mut tras_mx1)?;
-    println!(
-        "====================================== RAW1 len: {}",
-        assrw1.len()
-    );
-    stage_02_b(assrw1, &tras_mx1)?;
+    stage_02_1(coreno, &aids, &pea, &mut assrw1, &mut tras_mx1)?;
+    let se = tik.elapsed().unwrap().as_secs();
+    println!("======== RAW1 len: {} - {se} sec", assrw1.len());
+    stage_02_b(coreno, assrw1, &tras_mx1)?;
     /*
-    let mut assrw2 = Vec::<PeaAssVar>::new();
-    stage_02_2(
-        &aids,
-        &pea,
-        &mut assrw1,
-        &mut assrw2,
-        &tras_mx1,
-        &mut tras_mx2,
-        &mut tras_sm2,
-    )?;
-    println!(
-        "====================================== RAW2 len: {}",
-        assrw2.len()
-    );
     stage_02_3(&aids, &pea, DNM, &tras_mx2, &tras_sm2)?;
     stage_02_4(&aids, &pea, DNM)?;
-    let maxs = vec![tras_mx1, tras_mx2, tras_sm2];
-    let bin: Vec<u8> = bincode::encode_to_vec(&maxs, bincode::config::standard()).unwrap();
-    std::fs::write(format!("{DNM}/pea-mx.bin"), bin).unwrap();
     */
 
     Ok(())
 }
 
-/*
-pub fn stage_02_a() -> Result<(), Box<dyn Error>> {
-    println!("===== STAGE 2A =====");
-    let buf = std::fs::read(format!("{DNM}/000_pea.bin")).unwrap();
-    let (pea, _): (Pea, usize) =
-        bincode::decode_from_slice(&buf[..], bincode::config::standard()).unwrap();
-    let mut aids: Vec<_> = pea.aream.keys().collect();
-    aids.sort();
-    stage_02_4(&aids, &pea, DNM)?;
-    Ok(())
-}
-*/
-
 pub fn stage_02_1(
+    _coreno: usize,
     aids: &Vec<&String>,
     pea: &Pea,
     assv: &mut Vec<PeaAssVar>,
@@ -175,7 +182,7 @@ pub fn stage_02_1(
                 let Some(ar) = aream.get(&aid) else {
                     return;
                 };
-                println!("ar:{}", ar.arid);
+                //println!("ar:{}", ar.arid);
                 let eg = ProcEngine::prep3(&id);
                 //--- amphor initialization
                 let mut am_dn = HashMap::<String, (f32, f32)>::new();
@@ -283,7 +290,7 @@ pub fn stage_02_1(
                         }
                         let vs07 = sub.mvxn as f32;
 
-                        println!(" pv:{pid} sb:{sid} feed: {}", sub.feeders.len());
+                        //println!(" pv:{pid} sb:{sid} feed: {}", sub.feeders.len());
                         let mut fids: Vec<_> = sub.feedm.keys().collect();
                         fids.sort();
                         let mut s_tr_ass = Vec::<PeaAssVar>::new();
@@ -463,7 +470,7 @@ pub fn stage_02_1(
                                         allsel += met.kwh15;
                                     } else if let MeterAccType::Large = met.met_type {
                                         vt10 += met.kwh15;
-                                        print!("_{}", met.kwh15);
+                                        //print!("_{}", met.kwh15);
                                         //allsel += met.kwh15;
                                     }
                                     if trn.own == "P" {
@@ -663,15 +670,15 @@ pub fn stage_02_1(
     Ok(())
 }
 
-use std::sync::mpsc;
-use std::thread;
-
-pub fn stage_02_b(assrw1: Vec<PeaAssVar>, tras_mx1: &PeaAssVar) -> Result<(), Box<dyn Error>> {
-    let cn = 10;
+pub fn stage_02_b(
+    coreno: usize,
+    assrw1: Vec<PeaAssVar>,
+    tras_mx1: &PeaAssVar,
+) -> Result<(), Box<dyn Error>> {
+    //let cn = 10;
     //let sz = (assrw1.len() + cn - 1) / cn;
-    let sz = assrw1.len().div_ceil(cn);
+    let sz = assrw1.len().div_ceil(coreno);
 
-    //
     //////////////////////////////////////////////
     // EV Weight
     let mut we_ev = PeaAssVar::from(0u64);
@@ -703,19 +710,23 @@ pub fn stage_02_b(assrw1: Vec<PeaAssVar>, tras_mx1: &PeaAssVar) -> Result<(), Bo
     let mut tras_raw = assrw1.clone();
     let mut tras_nor = tras_raw.clone();
 
-    println!("======== STG2 ==== start nor");
-    thread::scope(|s| {
-        for tras_nor in tras_nor.chunks_mut(sz) {
-            let tras_mx1 = tras_mx1.clone();
-            s.spawn(move || {
-                for tras in tras_nor {
-                    tras.nor(&tras_mx1);
-                }
-            });
-        }
-    });
     {
-        println!("======== STG2 ==== start ev");
+        let tik = std::time::SystemTime::now();
+        thread::scope(|s| {
+            for tras_nor in tras_nor.chunks_mut(sz) {
+                let tras_mx1 = tras_mx1.clone();
+                s.spawn(move || {
+                    for tras in tras_nor {
+                        tras.nor(&tras_mx1);
+                    }
+                });
+            }
+        });
+        let se = tik.elapsed().unwrap().as_secs();
+        println!("======== STG2 ==== start nor - {se} sec");
+    }
+    {
+        let tik = std::time::SystemTime::now();
         let mut tras_ev = tras_nor.clone();
         thread::scope(|s| {
             for (evs, rws) in tras_ev.chunks_mut(sz).zip(tras_raw.chunks_mut(sz)) {
@@ -729,10 +740,12 @@ pub fn stage_02_b(assrw1: Vec<PeaAssVar>, tras_mx1: &PeaAssVar) -> Result<(), Bo
                 });
             }
         });
+        let se = tik.elapsed().unwrap().as_secs();
+        println!("======== STG2 ==== start ev - {se} sec");
     }
 
     {
-        println!("======== STG2 ==== start et");
+        let tik = std::time::SystemTime::now();
         let mut tras_et = tras_nor.clone();
         thread::scope(|s| {
             for (ets, rws) in tras_et.chunks_mut(sz).zip(tras_raw.chunks_mut(sz)) {
@@ -746,10 +759,12 @@ pub fn stage_02_b(assrw1: Vec<PeaAssVar>, tras_mx1: &PeaAssVar) -> Result<(), Bo
                 });
             }
         });
+        let se = tik.elapsed().unwrap().as_secs();
+        println!("======== STG2 ==== start et - {se} sec");
     }
 
     {
-        println!("======== STG2 ==== start eb");
+        let tik = std::time::SystemTime::now();
         let mut tras_eb = tras_nor.clone();
         thread::scope(|s| {
             for (ebs, rws) in tras_eb.chunks_mut(sz).zip(tras_raw.chunks_mut(sz)) {
@@ -763,10 +778,12 @@ pub fn stage_02_b(assrw1: Vec<PeaAssVar>, tras_mx1: &PeaAssVar) -> Result<(), Bo
                 });
             }
         });
+        let se = tik.elapsed().unwrap().as_secs();
+        println!("======== STG2 ==== start eb - {se} secs");
     }
 
     {
-        println!("======== STG2 ==== start so");
+        let tik = std::time::SystemTime::now();
         let mut tras_so = tras_nor.clone();
         thread::scope(|s| {
             for (sos, rws) in tras_so.chunks_mut(sz).zip(tras_raw.chunks_mut(sz)) {
@@ -780,42 +797,50 @@ pub fn stage_02_b(assrw1: Vec<PeaAssVar>, tras_mx1: &PeaAssVar) -> Result<(), Bo
                 });
             }
         });
+        let se = tik.elapsed().unwrap().as_secs();
+        println!("======== STG2 ==== start so - {se} secs");
     }
-
-    println!("======== STG2 ==== SUM");
-    let (tx0, rx) = mpsc::channel();
-    let mut txv = vec![];
-    for _ in 1..cn {
-        txv.push(tx0.clone());
-    }
-    txv.push(tx0);
-    thread::scope(|s| {
-        for tras_raw in tras_raw.chunks_mut(sz) {
-            let tx = txv.pop().unwrap();
-            //let tx = tx0.clone();
-            s.spawn(move || {
-                let mut sum = PeaAssVar::from(0u64);
-                for tras in tras_raw.iter() {
-                    sum.add(tras);
-                }
-                tx.send(sum).unwrap();
-            });
-        }
-    });
 
     let mut sum = PeaAssVar::from(0u64);
-    for (i, r) in rx.iter().enumerate() {
-        sum.add(&r);
+    {
+        let tik = std::time::SystemTime::now();
+
+        let (tx0, rx) = mpsc::channel();
+        let mut txv = vec![];
+        for _ in 1..coreno {
+            txv.push(tx0.clone());
+        }
+        txv.push(tx0);
+        thread::scope(|s| {
+            for tras_raw in tras_raw.chunks_mut(sz) {
+                let tx = txv.pop().unwrap();
+                //let tx = tx0.clone();
+                s.spawn(move || {
+                    let mut sum = PeaAssVar::from(0u64);
+                    for tras in tras_raw.iter() {
+                        sum.add(tras);
+                    }
+                    tx.send(sum).unwrap();
+                });
+            }
+        });
+        for r in rx.iter() {
+            sum.add(&r);
+        }
+
+        let se = tik.elapsed().unwrap().as_secs();
+        println!("======== STG2 ==== SUM - {se} secs");
     }
 
-    println!("======== STG2 ==== MAX2");
     let (tx0, rx) = mpsc::channel();
     let mut txv = vec![];
-    for _ in 1..cn {
+    for _ in 1..coreno {
         txv.push(tx0.clone());
     }
     txv.push(tx0);
+
     thread::scope(|s| {
+        let tik = std::time::SystemTime::now();
         for tras_raw in tras_raw.chunks_mut(sz) {
             let tx = txv.pop().unwrap();
             s.spawn(move || {
@@ -847,15 +872,16 @@ pub fn stage_02_b(assrw1: Vec<PeaAssVar>, tras_mx1: &PeaAssVar) -> Result<(), Bo
                 let _ = tx.send(max2);
             });
         }
+        let se = tik.elapsed().unwrap().as_secs();
+        println!("======== STG2 ==== MAX2 - {se} secs");
     });
     let mut max2 = PeaAssVar::from(0u64);
     //let mut sum2 = PeaAssVar::from(0u64);
-    for (i, r) in rx.iter().enumerate() {
+    for r in rx.iter() {
         max2.add(&r);
     }
 
     //////////////////////////////////////
-    println!("======== STG2 ==== END");
     let mut we_uc1 = PeaAssVar::from(0u64);
     for (vt, vv) in WE_UC1 {
         we_uc1.v[vt.tousz()].v = vv;
@@ -872,114 +898,103 @@ pub fn stage_02_b(assrw1: Vec<PeaAssVar>, tras_mx1: &PeaAssVar) -> Result<(), Bo
     let resc = re_scurv();
     let etsc = et_scurv();
     let ebsc = eb_scurv();
-    println!("evsc: {} resc: {}", evsc.len(), resc.len());
+    //println!("evsc: {} resc: {}", evsc.len(), resc.len());
 
     let mut tras_nor = tras_raw.clone();
 
-    println!("======== STG3 ==== start nor");
-    thread::scope(|s| {
-        for tras_nor in tras_nor.chunks_mut(sz) {
-            let max2 = max2.clone();
-            s.spawn(move || {
-                for tras in tras_nor {
-                    tras.nor(&max2);
-                }
-            });
-        }
-    });
+    {
+        let tik = std::time::SystemTime::now();
+        thread::scope(|s| {
+            for tras_nor in tras_nor.chunks_mut(sz) {
+                let max2 = max2.clone();
+                s.spawn(move || {
+                    for tras in tras_nor {
+                        tras.nor(&max2);
+                    }
+                });
+            }
+        });
+        let se = tik.elapsed().unwrap().as_secs();
+        println!("======== STG3 ==== start nor - {se} secs");
+    }
 
-    println!("======== STG3 ==== CALC RATIO ");
-    let mut tras_sum = tras_raw.clone();
-    thread::scope(|s| {
-        //for trraw in tras_raw.chunks_mut(sz) {
-        for (trsum, trraw) in tras_sum.chunks_mut(sz).zip(tras_raw.chunks_mut(sz)) {
-            let evsc = evsc.clone();
-            let etsc = etsc.clone();
-            let ebsc = ebsc.clone();
-            let sum = sum.clone();
-            s.spawn(move || {
-                //for tras0 in trraw.iter_mut() {
-                for (tras, tras0) in trsum.iter_mut().zip(trraw.iter_mut()) {
-                    tras.nor(&sum);
+    {
+        let mut tras_sum = tras_raw.clone();
+        let tik = std::time::SystemTime::now();
+        thread::scope(|s| {
+            for (trsum, trraw) in tras_sum.chunks_mut(sz).zip(tras_raw.chunks_mut(sz)) {
+                let evsc = evsc.clone();
+                let etsc = etsc.clone();
+                let ebsc = ebsc.clone();
+                let sum = sum.clone();
+                s.spawn(move || {
+                    for (tras, tras0) in trsum.iter_mut().zip(trraw.iter_mut()) {
+                        tras.nor(&sum);
 
-                    //============================== EV consumption
-                    tras0.v[VarType::NoHmChgEvTr as usize].v =
-                        tras.v[VarType::HmChgEvTr as usize].v * 210_000f32;
-                    tras0.v[VarType::PowHmChgEvTr as usize].v =
-                        tras0.v[VarType::NoHmChgEvTr as usize].v * 0.007f32;
-                    for (i, rt) in evsc.iter().enumerate() {
-                        let evno = tras.v[VarType::HmChgEvTr.tousz()].v * EV_AT_2050 * rt;
-                        tras0.vy[VarType::NoHmChgEvTr.tousz()].push(evno);
-                        tras0.vy[VarType::PowHmChgEvTr.tousz()].push(evno * 0.007f32);
-                        // ev car charger is 7kw
-                        // everage charge 2 hour / day
-                        // everage charge 1.5 hour / day
-                        // everage charge 1.2 hour / day
-                        // profit 0.42 baht per kwh
-                        //
-                        let evbt = if i < 0 {
-                            0f32
-                        } else {
-                            evno * EV_CHG_POW_KW
+                        //============================== EV consumption
+                        tras0.v[VarType::NoHmChgEvTr as usize].v =
+                            tras.v[VarType::HmChgEvTr as usize].v * 210_000f32;
+                        tras0.v[VarType::PowHmChgEvTr as usize].v =
+                            tras0.v[VarType::NoHmChgEvTr as usize].v * 0.007f32;
+                        for rt in evsc.iter() {
+                            let evno = tras.v[VarType::HmChgEvTr.tousz()].v * EV_AT_2050 * rt;
+                            tras0.vy[VarType::NoHmChgEvTr.tousz()].push(evno);
+                            tras0.vy[VarType::PowHmChgEvTr.tousz()]
+                                .push(evno * EV_CHG_POW_KW / 1_000f32);
+                            let evbt = evno
+                                * EV_CHG_POW_KW
                                 * EV_DAY_CHG_HOUR
                                 * EV_CHG_PROF_KW
                                 * 365.0
-                                * EV_CLAIM_RATE
-                        };
-                        tras0.vy[VarType::FirEvChgThb.tousz()].push(evbt);
-                    }
-                    tras0.v[VarType::FirEvChgThb.tousz()].v =
-                        tras0.vy[VarType::FirEvChgThb.tousz()].iter().sum();
+                                * EV_CLAIM_RATE;
+                            tras0.vy[VarType::FirEvChgThb.tousz()].push(evbt);
+                        }
+                        tras0.sum_yr(VarType::FirEvChgThb);
 
-                    //============================== EV TRUCK consumption
-                    // EV truck
-                    for (i, rt) in etsc.iter().enumerate() {
-                        let etno = tras.v[VarType::ChgEtTr.tousz()].v * ET_AT_2050 * rt;
-                        tras0.vy[VarType::NoEtTr.tousz()].push(etno);
-                        let etbt = if i < 0 {
-                            0f32
-                        } else {
-                            etno * ET_CHG_POW_KW
+                        //============================== EV TRUCK consumption
+                        // EV truck
+                        for rt in etsc.iter() {
+                            let etno = tras.v[VarType::ChgEtTr.tousz()].v * ET_AT_2050 * rt;
+                            tras0.vy[VarType::NoEtTr.tousz()].push(etno);
+                            let etbt = etno
+                                * ET_CHG_POW_KW
                                 * ET_DAY_CHG_HOUR
                                 * EV_CHG_PROF_KW
                                 * 365.0
-                                * ET_CLAIM_RATE
-                        };
-                        tras0.vy[VarType::FirEtChgThb.tousz()].push(etbt);
-                    }
-                    tras0.v[VarType::FirEtChgThb.tousz()].v =
-                        tras0.vy[VarType::FirEtChgThb.tousz()].iter().sum();
+                                * ET_CLAIM_RATE;
+                            tras0.vy[VarType::FirEtChgThb.tousz()].push(etbt);
+                        }
+                        tras0.sum_yr(VarType::FirEtChgThb);
 
-                    // EV bike
-                    for (i, rt) in ebsc.iter().enumerate() {
-                        let ebno = tras.v[VarType::ChgEbTr.tousz()].v * ET_AT_2050 * rt;
-                        tras0.vy[VarType::NoEtTr.tousz()].push(ebno);
-                        let ebbt = if i < 0 {
-                            0f32
-                        } else {
-                            ebno * EB_CHG_POW_KW
+                        // EV bike
+                        for rt in ebsc.iter() {
+                            let ebno = tras.v[VarType::ChgEbTr.tousz()].v * ET_AT_2050 * rt;
+                            tras0.vy[VarType::NoEtTr.tousz()].push(ebno);
+                            let ebbt = ebno
+                                * EB_CHG_POW_KW
                                 * EB_DAY_CHG_HOUR
                                 * EV_CHG_PROF_KW
                                 * 365.0
-                                * EB_CLAIM_RATE
-                        };
-                        tras0.vy[VarType::FirEbChgThb.tousz()].push(ebbt);
+                                * EB_CLAIM_RATE;
+                            tras0.vy[VarType::FirEbChgThb.tousz()].push(ebbt);
+                        }
+                        tras0.sum_yr(VarType::FirEbChgThb);
                     }
-                    tras0.v[VarType::FirEbChgThb.tousz()].v =
-                        tras0.vy[VarType::FirEbChgThb.tousz()].iter().sum();
-                }
-            });
-            /*
-                  //// save normal bin
-                let bin: Vec<u8> =
-                    bincode::encode_to_vec(&v_tras_nor, bincode::config::standard()).unwrap();
-                std::fs::write(format!("{dnm}/{sid}-no2.bin"), bin).unwrap();
-            */
-        }
-    });
+                });
+                /*
+                      //// save normal bin
+                    let bin: Vec<u8> =
+                        bincode::encode_to_vec(&v_tras_nor, bincode::config::standard()).unwrap();
+                    std::fs::write(format!("{dnm}/{sid}-no2.bin"), bin).unwrap();
+                */
+            }
+        });
+        let se = tik.elapsed().unwrap().as_secs();
+        println!("======== STG3 ==== CALC RATIO - {se} secs");
+    }
 
     {
-        println!("======== STG3 ==== USE CASE 1 ");
+        let tik = std::time::SystemTime::now();
         let mut tras_uc1 = tras_nor.clone();
         thread::scope(|s| {
             for (truc1, trraw) in tras_uc1.chunks_mut(sz).zip(tras_raw.chunks_mut(sz)) {
@@ -997,9 +1012,12 @@ pub fn stage_02_b(assrw1: Vec<PeaAssVar>, tras_mx1: &PeaAssVar) -> Result<(), Bo
                  */
             }
         });
+        let se = tik.elapsed().unwrap().as_secs();
+        println!("======== STG3 ==== USE CASE 1 - {se} secs");
     }
+
     {
-        println!("======== STG3 ==== USE CASE 2 ");
+        let tik = std::time::SystemTime::now();
         let mut tras_uc2 = tras_nor.clone();
         thread::scope(|s| {
             for (truc2, trraw) in tras_uc2.chunks_mut(sz).zip(tras_raw.chunks_mut(sz)) {
@@ -1013,9 +1031,12 @@ pub fn stage_02_b(assrw1: Vec<PeaAssVar>, tras_mx1: &PeaAssVar) -> Result<(), Bo
                 });
             }
         });
+        let se = tik.elapsed().unwrap().as_secs();
+        println!("======== STG3 ==== USE CASE 2 - {se} secs");
     }
+
     {
-        println!("======== STG3 ==== USE CASE 3 ");
+        let tik = std::time::SystemTime::now();
         let mut tras_uc3 = tras_nor.clone();
         thread::scope(|s| {
             for (truc3, trraw) in tras_uc3.chunks_mut(sz).zip(tras_raw.chunks_mut(sz)) {
@@ -1029,93 +1050,79 @@ pub fn stage_02_b(assrw1: Vec<PeaAssVar>, tras_mx1: &PeaAssVar) -> Result<(), Bo
                 });
             }
         });
+        let se = tik.elapsed().unwrap().as_secs();
+        println!("======== STG3 ==== USE CASE 3 - {se} secs");
     }
 
     {
-        println!("======== STG4 ==== COST/BENEFIT ");
+        let tik = std::time::SystemTime::now();
         thread::scope(|s| {
-            for (i, trraw) in tras_raw.chunks_mut(sz).enumerate() {
+            for trraw in tras_raw.chunks_mut(sz) {
                 s.spawn(move || {
                     for tras in trraw.iter_mut() {
                         let ary = crate::ben2::ben_bill_accu(tras);
                         tras.vy[VarType::FirBilAccu.tousz()].append(&mut ary.clone());
                         tras.sum_yr(VarType::FirBilAccu);
-                        //tras.v[VarType::FirBilAccu.tousz()].v = ary.iter().sum();
 
                         let csh = crate::ben2::ben_cash_flow(tras);
                         tras.vy[VarType::FirCashFlow.tousz()].append(&mut csh.clone());
                         tras.sum_yr(VarType::FirCashFlow);
-                        //tras.v[VarType::FirCashFlow.tousz()].v = csh.iter().sum();
 
                         let drs = crate::ben2::ben_dr_save(tras);
                         tras.vy[VarType::FirDRSave.tousz()].append(&mut drs.clone());
                         tras.sum_yr(VarType::FirDRSave);
-                        //tras.v[VarType::FirDRSave.tousz()].v = drs.iter().sum();
 
                         let bxc = crate::ben2::ben_boxline_save(tras);
                         tras.vy[VarType::FirMetBoxSave.tousz()].append(&mut bxc.clone());
                         tras.sum_yr(VarType::FirMetBoxSave);
-                        //tras.v[VarType::FirMetBoxSave.tousz()].v = bxc.iter().sum();
 
                         let wks = crate::ben2::ben_work_save(tras);
                         tras.vy[VarType::FirLaborSave.tousz()].append(&mut wks.clone());
                         tras.sum_yr(VarType::FirLaborSave);
-                        //tras.v[VarType::FirLaborSave.tousz()].v = wks.iter().sum();
 
                         let mts = crate::ben2::ben_sell_meter(tras);
                         tras.vy[VarType::FirMetSell.tousz()].append(&mut mts.clone());
                         tras.sum_yr(VarType::FirMetSell);
-                        //tras.v[VarType::FirMetSell.tousz()].v = mts.iter().sum();
 
                         let ems = crate::ben2::ben_emeter(tras);
                         tras.vy[VarType::FirEMetSave.tousz()].append(&mut ems.clone());
                         tras.sum_yr(VarType::FirEMetSave);
-                        //tras.v[VarType::FirEMetSave.tousz()].v = ems.iter().sum();
 
                         let mrs = crate::ben2::ben_mt_read(tras);
                         tras.vy[VarType::FirMetReadSave.tousz()].append(&mut mrs.clone());
                         tras.sum_yr(VarType::FirMetReadSave);
-                        //tras.v[VarType::FirMetReadSave.tousz()].v = mrs.iter().sum();
 
                         let mds = crate::ben2::ben_mt_disconn(tras);
                         tras.vy[VarType::FirMetDisSave.tousz()].append(&mut mds.clone());
                         tras.sum_yr(VarType::FirMetDisSave);
-                        //tras.v[VarType::FirMetDisSave.tousz()].v = mds.iter().sum();
 
                         let tos = crate::ben2::ben_tou_sell(tras);
                         tras.vy[VarType::FirTouSell.tousz()].append(&mut tos.clone());
                         tras.sum_yr(VarType::FirTouSell);
-                        //tras.v[VarType::FirTouSell.tousz()].v = tos.iter().sum();
 
                         let trs = crate::ben2::ben_tou_read(tras);
                         tras.vy[VarType::FirTouReadSave.tousz()].append(&mut trs.clone());
                         tras.sum_yr(VarType::FirTouReadSave);
-                        //tras.v[VarType::FirTouReadSave.tousz()].v = trs.iter().sum();
 
                         let tus = crate::ben2::ben_tou_update(tras);
                         tras.vy[VarType::FirTouUpdateSave.tousz()].append(&mut tus.clone());
                         tras.sum_yr(VarType::FirTouUpdateSave);
-                        //tras.v[VarType::FirTouUpdateSave.tousz()].v = tus.iter().sum();
 
                         let ols = crate::ben2::ben_outage_labor(tras);
                         tras.vy[VarType::FirOutLabSave.tousz()].append(&mut ols.clone());
                         tras.sum_yr(VarType::FirOutLabSave);
-                        //tras.v[VarType::FirOutLabSave.tousz()].v = ols.iter().sum();
 
                         let cps = crate::ben2::ben_reduce_complain(tras);
                         tras.vy[VarType::FirComplainSave.tousz()].append(&mut cps.clone());
                         tras.sum_yr(VarType::FirComplainSave);
-                        //tras.v[VarType::FirComplainSave.tousz()].v = cps.iter().sum();
 
                         let asv = crate::ben2::ben_asset_value(tras);
                         tras.vy[VarType::FirAssetValue.tousz()].append(&mut asv.clone());
                         tras.sum_yr(VarType::FirAssetValue);
-                        //tras.v[VarType::FirAssetValue.tousz()].v = asv.iter().sum();
 
                         let mes = crate::ben2::ben_model_entry(tras);
                         tras.vy[VarType::FirDataEntrySave.tousz()].append(&mut mes.clone());
                         tras.sum_yr(VarType::FirDataEntrySave);
-                        //tras.v[VarType::FirDataEntrySave.tousz()].v = mes.iter().sum();
 
                         let dum = vec![0f32; 15];
                         tras.vy[VarType::FirBatSubSave.tousz()].append(&mut dum.clone());
@@ -1200,101 +1207,278 @@ pub fn stage_02_b(assrw1: Vec<PeaAssVar>, tras_mx1: &PeaAssVar) -> Result<(), Bo
                         tras.vy[VarType::EirEnerResvSave.tousz()].append(&mut eir_en_rev_save(sel));
                         tras.sum_yr(VarType::EirEnerResvSave);
 
-                        /*
-                        tras.v[VarType::CstMet1pIns.tousz()].v =
-                            tras.vy[VarType::CstMet1pIns.tousz()].iter().sum();
-
-                        tras.v[VarType::CstMet1pIns.tousz()].v =
-                            tras.vy[VarType::CstMet1pIns.tousz()].iter().sum();
-
-                        tras.v[VarType::CstMet1pIns.tousz()].v =
-                            tras.vy[VarType::CstMet1pIns.tousz()].iter().sum();
-
-                        tras.v[VarType::CstMet1pIns.tousz()].v =
-                            tras.vy[VarType::CstMet1pIns.tousz()].iter().sum();
-
-                        tras.v[VarType::CstMet1pIns.tousz()].v =
-                            tras.vy[VarType::CstMet1pIns.tousz()].iter().sum();
-
-                        tras.v[VarType::CstMet1pIns.tousz()].v =
-                            tras.vy[VarType::CstMet1pIns.tousz()].iter().sum();
-                        tras.v[VarType::CstMet3pIns.tousz()].v =
-                            tras.vy[VarType::CstMet3pIns.tousz()].iter().sum();
-                        tras.v[VarType::CstTrIns.tousz()].v =
-                            tras.vy[VarType::CstTrIns.tousz()].iter().sum();
-                        tras.v[VarType::CstBessIns.tousz()].v =
-                            tras.vy[VarType::CstBessIns.tousz()].iter().sum();
-                        tras.v[VarType::CstPlfmIns.tousz()].v =
-                            tras.vy[VarType::CstPlfmIns.tousz()].iter().sum();
-                        tras.v[VarType::CstCommIns.tousz()].v =
-                            tras.vy[VarType::CstCommIns.tousz()].iter().sum();
-
-                        tras.v[VarType::CstMet1pImp.tousz()].v =
-                            tras.vy[VarType::CstMet1pImp.tousz()].iter().sum();
-                        tras.v[VarType::CstMet3pImp.tousz()].v =
-                            tras.vy[VarType::CstMet3pImp.tousz()].iter().sum();
-                        tras.v[VarType::CstTrImp.tousz()].v =
-                            tras.vy[VarType::CstTrImp.tousz()].iter().sum();
-                        tras.v[VarType::CstBessImp.tousz()].v =
-                            tras.vy[VarType::CstBessImp.tousz()].iter().sum();
-                        tras.v[VarType::CstPlfmImp.tousz()].v =
-                            tras.vy[VarType::CstPlfmImp.tousz()].iter().sum();
-                        tras.v[VarType::CstCommImp.tousz()].v =
-                            tras.vy[VarType::CstCommImp.tousz()].iter().sum();
-
-                        tras.v[VarType::CstMet1pOp.tousz()].v =
-                            tras.vy[VarType::CstMet1pOp.tousz()].iter().sum();
-                        tras.v[VarType::CstMet3pOp.tousz()].v =
-                            tras.vy[VarType::CstMet3pOp.tousz()].iter().sum();
-                        tras.v[VarType::CstTrOp.tousz()].v =
-                            tras.vy[VarType::CstTrOp.tousz()].iter().sum();
-                        tras.v[VarType::CstBessOp.tousz()].v =
-                            tras.vy[VarType::CstBessOp.tousz()].iter().sum();
-                        tras.v[VarType::CstPlfmOp.tousz()].v =
-                            tras.vy[VarType::CstPlfmOp.tousz()].iter().sum();
-                        tras.v[VarType::CstCommOp.tousz()].v =
-                            tras.vy[VarType::CstCommOp.tousz()].iter().sum();
-
-                        tras.v[VarType::EirCustLossSave.tousz()].v =
-                            tras.vy[VarType::EirCustLossSave.tousz()].iter().sum();
-                        tras.v[VarType::EirConsumSave.tousz()].v =
-                            tras.vy[VarType::EirConsumSave.tousz()].iter().sum();
-                        tras.v[VarType::EirGrnHsEmsSave.tousz()].v =
-                            tras.vy[VarType::EirGrnHsEmsSave.tousz()].iter().sum();
-                        tras.v[VarType::EirCustMvRev.tousz()].v =
-                            tras.vy[VarType::EirCustMvRev.tousz()].iter().sum();
-                        tras.v[VarType::EirCustEvSave.tousz()].v =
-                            tras.vy[VarType::EirCustEvSave.tousz()].iter().sum();
-                        tras.v[VarType::EirCustEtrkSave.tousz()].v =
-                            tras.vy[VarType::EirCustEtrkSave.tousz()].iter().sum();
-                        tras.v[VarType::EirSolaRfTopSave.tousz()].v =
-                            tras.vy[VarType::EirSolaRfTopSave.tousz()].iter().sum();
-                        tras.v[VarType::EirEnerResvSave.tousz()].v =
-                            tras.vy[VarType::EirEnerResvSave.tousz()].iter().sum();
-                        */
-
                         ass_calc(tras).expect("?");
                     }
                 });
             }
         });
+        let se = tik.elapsed().unwrap().as_secs();
+        println!("======== STG4 ==== COST/BENEFIT - {se} secs");
     }
 
-    println!("======== STG4 ==== SAVE SUB FILES ");
+    //println!("======== END STG2 ==== ass :{} ", tras_raw.len());
+    /*
     let mut tr_sb_m = HashMap::<String, Vec<PeaAssVar>>::new();
     for trraw in tras_raw {
-        let sbid = trraw.sbid.to_string();
-        //let assv = tr_sb_m.entry(sbid).or_insert_with(Vec::<PeaAssVar>::new);
+        let sbid = trraw.arid.to_string();
         let assv = tr_sb_m.entry(sbid).or_default();
         assv.push(trraw);
     }
+    */
+
+    let mut m_brn = HashMap::<String, BranchGIS>::new();
+    let mut m_brnas = HashMap::<String, PeaAssVar>::new();
+    //let mut brn_m = HashMap::<String, PeaAssVar>::new();
+    let aids = vec![
+        "N1", "N2", "N3", "NE1", "NE2", "NE3", "C1", "C2", "C3", "S1", "S2", "S3",
+    ];
+    for aid in aids {
+        let aojs0 = ProcEngine::aojs0(aid);
+        for aoj in &aojs0 {
+            let Some(ref aojcd) = aoj.code else {
+                continue;
+            };
+            let brn = BranchGIS::from(aoj);
+            m_brn.insert(aojcd.clone(), brn);
+            let mut ass = PeaAssVar::from(0u64);
+            ass.aoj = aojcd.to_string();
+            m_brnas.insert(ass.aoj.clone(), ass);
+        }
+    }
+
+    let a_sub_hm = Arc::new(Mutex::new(HashMap::<String, PeaAssVar>::new()));
+    let a_brn_hm = Arc::new(Mutex::new(HashMap::<String, PeaAssVar>::new()));
+    {
+        let tik = std::time::SystemTime::now();
+        std::thread::scope(|s| {
+            let rsz = tras_raw.len().div_ceil(coreno);
+            for vsa in tras_raw.chunks_mut(rsz) {
+                let c_sub_hm = a_sub_hm.clone();
+                let c_brn_hm = a_brn_hm.clone();
+                s.spawn(move || {
+                    let mut sub_m = HashMap::<String, PeaAssVar>::new();
+                    let mut brn_m = HashMap::<String, PeaAssVar>::new();
+                    for sa in vsa {
+                        let sbid = sa.sbid.to_string();
+                        let sbas = sub_m.entry(sbid).or_insert_with(|| sa.clone());
+                        sbas.add_ex(sa, &SUB_LEVEL_FLDS);
+                        let aojcd = sa.aojcd.clone();
+                        let bras = brn_m.entry(aojcd).or_insert_with(|| sa.clone());
+                        bras.add_ex(sa, &SUB_LEVEL_FLDS);
+                    }
+                    if let Ok(mut sub_hm) = c_sub_hm.lock() {
+                        for sub in sub_m.values() {
+                            let sbid = sub.sbid.to_string();
+                            let sbas = sub_hm.entry(sbid).or_insert_with(|| sub.clone());
+                            sbas.add_ex(sub, &SUB_LEVEL_FLDS);
+                        }
+                        //println!("  sub chunk {}", sub_m.len());
+                    }
+                    if let Ok(mut brn_hm) = c_brn_hm.lock() {
+                        for brn in brn_m.values() {
+                            let brid = brn.aojcd.clone();
+                            let bras = brn_hm.entry(brid).or_insert_with(|| brn.clone());
+                            bras.add_ex(brn, &SUB_LEVEL_FLDS);
+                        }
+                    }
+                });
+            }
+        });
+        let se = tik.elapsed().unwrap().as_secs();
+        println!("======== TR => SUBS,PRV - {se} secs");
+    }
+
+    let sub_hm = a_sub_hm.lock().unwrap().clone();
+    let brn_hm = a_brn_hm.lock().unwrap().clone();
+    drop(a_sub_hm);
+    drop(a_brn_hm);
+    let mut subass: Vec<_> = sub_hm.into_values().collect();
+    let mut brnass: Vec<_> = brn_hm.into_values().collect();
+    {
+        let tik = std::time::SystemTime::now();
+
+        let ssz = subass.len().div_ceil(coreno);
+        for subasc in subass.chunks_mut(ssz) {
+            for vas in subasc.iter_mut() {
+                vas.v[VarType::LvPowSatTr as usize].v =
+                    vas.v[VarType::PkPowTr as usize].v / z2o(vas.v[VarType::PwCapTr as usize].v);
+                vas.v[VarType::CntLvPowSatTr as usize].v =
+                    if vas.v[VarType::LvPowSatTr as usize].v > 0.8f32 {
+                        1f32
+                    } else {
+                        0f32
+                    };
+                vas.v[VarType::ChgStnCap as usize].v = vas.v[VarType::ChgStnCapTr as usize].v;
+                vas.v[VarType::ChgStnSell as usize].v = vas.v[VarType::ChgStnSellTr as usize].v;
+                vas.v[VarType::MvPowSatTr as usize].v = vas.v[VarType::MaxPosPowSub as usize].v
+                    / z2o(vas.v[VarType::SubPowCap as usize].v);
+                vas.v[VarType::MvVspp as usize].v = vas.v[VarType::VsppMv as usize].v;
+                vas.v[VarType::HvSpp as usize].v = vas.v[VarType::SppHv as usize].v;
+                vas.v[VarType::SmallSell as usize].v = vas.v[VarType::SmallSellTr as usize].v;
+                vas.v[VarType::LargeSell as usize].v = vas.v[VarType::LargeSellTr as usize].v;
+                vas.v[VarType::UnbalPow as usize].v = vas.v[VarType::UnbalPowTr as usize].v;
+                let v =
+                    vas.v[VarType::UnbalPowTr as usize].v / z2o(vas.v[VarType::PwCapTr as usize].v);
+                vas.v[VarType::CntUnbalPow as usize].v = if v > 0.5f32 { 1f32 } else { 0f32 };
+                let pwmx = vas.v[VarType::MaxPosPowSub.tousz()].v;
+                for (i, rt) in resc.iter().enumerate() {
+                    let rerev = rt
+                        * pwmx
+                        * PEAK_POWER_RATIO
+                        * RENEW_HOUR_PER_DAY
+                        * 365.0
+                        * RENEW_SAVE_PER_MWH;
+                    vas.vy[VarType::FirMvReThb.tousz()].push(rerev);
+                }
+                vas.sum_yr(VarType::FirMvReThb);
+                let _ = ass_calc(vas);
+            }
+        }
+
+        let bsz = brnass.len().div_ceil(coreno);
+        for brnasc in brnass.chunks_mut(bsz) {
+            for vas in brnasc.iter_mut() {
+                vas.v[VarType::LvPowSatTr as usize].v =
+                    vas.v[VarType::PkPowTr as usize].v / z2o(vas.v[VarType::PwCapTr as usize].v);
+                vas.v[VarType::CntLvPowSatTr as usize].v =
+                    if vas.v[VarType::LvPowSatTr as usize].v > 0.8f32 {
+                        1f32
+                    } else {
+                        0f32
+                    };
+                vas.v[VarType::ChgStnCap as usize].v = vas.v[VarType::ChgStnCapTr as usize].v;
+                vas.v[VarType::ChgStnSell as usize].v = vas.v[VarType::ChgStnSellTr as usize].v;
+                vas.v[VarType::MvPowSatTr as usize].v = vas.v[VarType::MaxPosPowSub as usize].v
+                    / z2o(vas.v[VarType::SubPowCap as usize].v);
+                vas.v[VarType::MvVspp as usize].v = vas.v[VarType::VsppMv as usize].v;
+                vas.v[VarType::HvSpp as usize].v = vas.v[VarType::SppHv as usize].v;
+                vas.v[VarType::SmallSell as usize].v = vas.v[VarType::SmallSellTr as usize].v;
+                vas.v[VarType::LargeSell as usize].v = vas.v[VarType::LargeSellTr as usize].v;
+                vas.v[VarType::UnbalPow as usize].v = vas.v[VarType::UnbalPowTr as usize].v;
+                let v =
+                    vas.v[VarType::UnbalPowTr as usize].v / z2o(vas.v[VarType::PwCapTr as usize].v);
+                vas.v[VarType::CntUnbalPow as usize].v = if v > 0.5f32 { 1f32 } else { 0f32 };
+                let _ = ass_calc(vas);
+            }
+        }
+
+        let se = tik.elapsed().unwrap().as_secs();
+        println!("SUM SUB:{} BRN:{} - {se}sec", subass.len(), brnass.len());
+    }
+
+    let a_prv_hm = Arc::new(Mutex::new(HashMap::<String, PeaAssVar>::new()));
+    let tik = std::time::SystemTime::now();
+    {
+        std::thread::scope(|s| {
+            let psz = subass.len().div_ceil(coreno);
+            for vsa in subass.chunks_mut(psz) {
+                let c_prv_hm = a_prv_hm.clone();
+                s.spawn(move || {
+                    let mut prv_m = HashMap::<String, PeaAssVar>::new();
+                    for sa in vsa {
+                        let pvid = sa.pvid.to_string();
+                        let pvas = prv_m.entry(pvid).or_insert_with(|| sa.clone());
+                        pvas.add_ex(sa, &PRV_LEVEL_FLDS);
+                    }
+                    if let Ok(mut prv_hm) = c_prv_hm.lock() {
+                        for prv in prv_m.values() {
+                            let pvid = prv.pvid.to_string();
+                            let pvas = prv_hm.entry(pvid).or_insert_with(|| prv.clone());
+                            pvas.add_ex(prv, &SUB_LEVEL_FLDS);
+                        }
+                        //println!("  prv chunk {}", prv_m.len());
+                    }
+                });
+            }
+        });
+    }
+    let prv_hm = a_prv_hm.lock().unwrap().clone();
+    drop(a_prv_hm);
+    let mut prvass: Vec<_> = prv_hm.into_values().collect();
+    for vas in prvass.iter_mut() {
+        vas.v[VarType::LvPowSatTr as usize].v =
+            vas.v[VarType::PkPowTr as usize].v / z2o(vas.v[VarType::PwCapTr as usize].v);
+        vas.v[VarType::CntLvPowSatTr as usize].v = if vas.v[VarType::LvPowSatTr as usize].v > 0.8f32
+        {
+            1f32
+        } else {
+            0f32
+        };
+        vas.v[VarType::ChgStnCap as usize].v = vas.v[VarType::ChgStnCapTr as usize].v;
+        vas.v[VarType::ChgStnSell as usize].v = vas.v[VarType::ChgStnSellTr as usize].v;
+        vas.v[VarType::MvPowSatTr as usize].v =
+            vas.v[VarType::MaxPosPowSub as usize].v / z2o(vas.v[VarType::SubPowCap as usize].v);
+        vas.v[VarType::MvVspp as usize].v = vas.v[VarType::VsppMv as usize].v;
+        vas.v[VarType::HvSpp as usize].v = vas.v[VarType::SppHv as usize].v;
+        vas.v[VarType::SmallSell as usize].v = vas.v[VarType::SmallSellTr as usize].v;
+        vas.v[VarType::LargeSell as usize].v = vas.v[VarType::LargeSellTr as usize].v;
+        vas.v[VarType::UnbalPow as usize].v = vas.v[VarType::UnbalPowTr as usize].v;
+        let v = vas.v[VarType::UnbalPowTr as usize].v / z2o(vas.v[VarType::PwCapTr as usize].v);
+        vas.v[VarType::CntUnbalPow as usize].v = if v > 0.5f32 { 1f32 } else { 0f32 };
+        let _ = ass_calc(vas);
+    }
+    let se = tik.elapsed().unwrap().as_secs();
+    println!("PRV:{} - {se}sec", prvass.len());
+
+    /*
+    println!("======== STG2 ==== SAVE SUB FILES ");
     for (k, v) in tr_sb_m {
         let bin: Vec<u8> = bincode::encode_to_vec(&v, bincode::config::standard()).unwrap();
         let fnm = format!("{DNM}/{k}-rw4.bin");
         std::fs::write(fnm, bin).unwrap();
     }
+    */
+
+    {
+        let tik = std::time::SystemTime::now();
+        ass_rank(&mut subass);
+        let bin: Vec<u8> = bincode::encode_to_vec(&subass, bincode::config::standard()).unwrap();
+        std::fs::write(format!("{DNM}/000-sbrw.bin"), bin).unwrap();
+
+        ass_rank(&mut prvass);
+        let bin: Vec<u8> = bincode::encode_to_vec(&prvass, bincode::config::standard()).unwrap();
+        std::fs::write(format!("{DNM}/000-pvrw.bin"), bin).unwrap();
+
+        ass_rank(&mut brnass);
+        let bin: Vec<u8> = bincode::encode_to_vec(&brnass, bincode::config::standard()).unwrap();
+        std::fs::write(format!("{DNM}/000-aojrw.bin"), bin).unwrap();
+        let se = tik.elapsed().unwrap().as_secs();
+        println!("SAVE summary - {se} sec",);
+    }
 
     Ok(())
+}
+
+pub fn ass_rank(asss: &mut [PeaAssVar]) {
+    let mut uc1_v: Vec<_> = asss
+        .iter()
+        .enumerate()
+        .map(|(i, s)| (s.v[VarType::Uc1Val as usize].v, i))
+        .collect();
+    uc1_v.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap());
+    for (r, (_, i)) in uc1_v.iter().enumerate() {
+        asss[*i].v[VarType::Uc1Rank as usize].v = r as f32 + 1.0;
+    }
+
+    let mut uc2_v: Vec<_> = asss
+        .iter()
+        .enumerate()
+        .map(|(i, s)| (s.v[VarType::Uc2Val as usize].v, i))
+        .collect();
+    uc2_v.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap());
+    for (r, (_, i)) in uc2_v.iter().enumerate() {
+        asss[*i].v[VarType::Uc2Rank as usize].v = r as f32 + 1.0;
+    }
+
+    let mut uc3_v: Vec<_> = asss
+        .iter()
+        .enumerate()
+        .map(|(i, s)| (s.v[VarType::Uc3Val as usize].v, i))
+        .collect();
+    uc3_v.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap());
+    for (r, (_, i)) in uc3_v.iter().enumerate() {
+        asss[*i].v[VarType::Uc3Rank as usize].v = r as f32 + 1.0;
+    }
 }
 
 pub fn ass_calc(sbas: &mut PeaAssVar) -> Result<(), Box<dyn Error>> {
@@ -1305,8 +1489,6 @@ pub fn ass_calc(sbas: &mut PeaAssVar) -> Result<(), Box<dyn Error>> {
         * UNBAL_CALC_FACTOR
         * 365.0;
     //let unb_los = sbas.v[VarType::UnbalPowLossKw.tousz()].v * 4.0 * 4.0;
-    //
-    // claim save ratio 0.5
     let mut los_sav = unb_los * UNBAL_LOSS_CLAIM_RATE;
     //
     // transformer may die within 5 years
@@ -1345,15 +1527,9 @@ pub fn ass_calc(sbas: &mut PeaAssVar) -> Result<(), Box<dyn Error>> {
         sbas.vy[VarType::FirTrPhsSatSave.tousz()].push(ubt);
         sbas.vy[VarType::FirNonTechLoss.tousz()].push(all);
     }
-    //sbas.v[VarType::FirUnbSave.tousz()].v = sbas.vy[VarType::FirUnbSave.tousz()].iter().sum();
     sbas.sum_yr(VarType::FirUnbSave);
-    //sbas.v[VarType::FirTrSatSave.tousz()].v = sbas.vy[VarType::FirTrSatSave.tousz()].iter().sum();
     sbas.sum_yr(VarType::FirTrSatSave);
-    //sbas.v[VarType::FirTrPhsSatSave.tousz()].v =
-    //    sbas.vy[VarType::FirTrPhsSatSave.tousz()].iter().sum();
     sbas.sum_yr(VarType::FirTrPhsSatSave);
-    //sbas.v[VarType::FirNonTechLoss.tousz()].v =
-    //    sbas.vy[VarType::FirNonTechLoss.tousz()].iter().sum();
     sbas.sum_yr(VarType::FirNonTechLoss);
 
     let mut fir_cpx_opx: Vec<f32> = vec![0f32; 15];

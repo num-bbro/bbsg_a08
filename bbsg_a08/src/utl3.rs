@@ -351,3 +351,17 @@ pub fn ass_var_aoj_tr(sc: &mut ScriptParam) -> Vec<Vec<String>> {
     vv
         */
 }
+
+use crate::dcl::ProcEngine;
+
+pub fn check_aoj() -> Result<(), Box<dyn Error>> {
+    let ars = [
+        "N1", "N2", "N3", "C1", "C2", "C3", "NE1", "NE2", "NE3", "S1", "S2", "S3",
+    ];
+    for a in ars {
+        println!("area {a}");
+        let aojs0 = ProcEngine::aojs0(a);
+        println!("   aojs:{}", aojs0.len());
+    }
+    Ok(())
+}

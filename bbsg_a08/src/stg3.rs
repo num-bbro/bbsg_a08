@@ -278,8 +278,9 @@ pub fn stage_03() -> Result<(), Box<dyn Error>> {
                     //let rerev = rt * pwrt * pwmx;
                     sbas.vy[VarType::FirMvReThb.tousz()].push(rerev);
                 }
-                sbas.v[VarType::FirMvReThb.tousz()].v =
-                    sbas.vy[VarType::FirMvReThb.tousz()].iter().sum();
+                sbas.sum_yr(VarType::FirMvReThb);
+                //sbas.v[VarType::FirMvReThb.tousz()].v =
+                //    sbas.vy[VarType::FirMvReThb.tousz()].iter().sum();
 
                 // ==========  MV BATTERY
                 let (mut sub, mut svg, mut dif, mut eng, _bescap) =

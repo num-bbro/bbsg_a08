@@ -34,8 +34,8 @@ pub const ECON_GRW_RATE: f32 = 0.00f32;
 
 pub fn ben_bill_accu(tras: &PeaAssVar) -> Vec<f32> {
     //let mut proj = vec![0.0, 0.0, 0.0];
-    let mut proj = vec![0.0];
-    for y in 0..12 {
+    let mut proj = vec![];
+    for y in 0..15 {
         let be = tras.v[VarType::AllSellTr.tousz()].v * SMETER_ACCU_IMPRV * SMETER_BILL_IMPRV;
         let be = be * 30.0;
         let be = be * UNIT_PRICE;
@@ -55,8 +55,8 @@ pub fn ben_cash_flow(tras: &PeaAssVar) -> Vec<f32> {
     let dl_d = dl_0 - CASH_DAY_DELAY_SMART; // diff days improved
     let dl_m1 = al0 * UNIT_PRICE / 365.0 * dl_d * CASH_FLOW_COST;
     //let mut proj = vec![0.0, 0.0, 0.0];
-    let mut proj = vec![0.0];
-    for y in 0..12 {
+    let mut proj = vec![];
+    for y in 0..15 {
         let be = dl_m1 as f64;
         // adjust
         let be = be * 40f64;
@@ -83,8 +83,8 @@ pub fn ben_dr_save(tras: &PeaAssVar) -> Vec<f32> {
     let opx5 = cap4 * 0.05;
     //let mut proj = Vec::<(u32, f32)>::new();
     //let mut proj = vec![0.0, 0.0, 0.0];
-    let mut proj = vec![0.0];
-    for y in 0..12 {
+    let mut proj = vec![];
+    for y in 0..15 {
         let be = if y == 0 { cap3 + cap4 } else { 0.0 };
         let be = be + opx1 + opx2 + opx3 + opx4 + opx5;
         // adjust
@@ -102,8 +102,8 @@ pub fn ben_boxline_save(tras: &PeaAssVar) -> Vec<f32> {
     let boxcnt = boxcnt * BOX_LINE_NEED_RATE;
     let boxex = boxcnt * BOX_LINE_UNIT_COST;
     //let mut proj = vec![0.0, 0.0, 0.0];
-    let mut proj = vec![0.0];
-    for y in 0..12 {
+    let mut proj = vec![];
+    for y in 0..15 {
         let be = boxex;
         let be = be / Pow::pow(1.0 + ECON_GRW_RATE, y);
         let be = be * Pow::pow(1.0 + ENGY_GRW_RATE, y);
@@ -130,8 +130,8 @@ pub fn ben_work_save(tras: &PeaAssVar) -> Vec<f32> {
     let wk_redu = yr_exp * WORKER_REDUCE_RATE;
     //print!(" rd:{wk_redu}");
     //let mut proj = vec![0.0, 0.0, 0.0];
-    let mut proj = vec![0.0];
-    for y in 0..12 {
+    let mut proj = vec![];
+    for y in 0..15 {
         let be = wk_redu;
         let be = be / Pow::pow(1.0 + ECON_GRW_RATE, y);
         let be = be * Pow::pow(1.0 + SALARY_INCR_RATE, y);
@@ -155,8 +155,8 @@ pub fn ben_sell_meter(tras: &PeaAssVar) -> Vec<f32> {
     let m3p_y = m3p_s / 12.0;
     //let mut proj = Vec::<(u32, f32)>::new();
     //let mut proj = vec![0.0, 0.0, 0.0];
-    let mut proj = vec![0.0];
-    for _y in 0..12 {
+    let mut proj = vec![];
+    for _y in 0..15 {
         let be = m1p_y + m3p_y;
         proj.push(be);
     }
@@ -188,8 +188,8 @@ pub fn ben_emeter(tras: &PeaAssVar) -> Vec<f32> {
     let m3_rp_e = m3_rp_c * (EMTR_3P_COST + EMTR_3P_REPL);
     let ex = m1_sw_e + m3_sw_e + m1_rp_e + m3_rp_e;
     //let mut proj = vec![0.0, 0.0, 0.0];
-    let mut proj = vec![0.0];
-    for y in 0..12 {
+    let mut proj = vec![];
+    for y in 0..15 {
         let be = ex;
         let be = be * Pow::pow(1.0 + EMTR_COST_UP, y);
         proj.push(be);
@@ -205,8 +205,8 @@ pub fn ben_mt_read(tras: &PeaAssVar) -> Vec<f32> {
     let m1_rd = tras.v[VarType::NoMet1Ph.tousz()].v * MT_READ_COST * 12.0;
     let m3_rd = tras.v[VarType::NoMet3Ph.tousz()].v * MT_READ_COST * 12.0;
     //let mut proj = vec![0.0, 0.0, 0.0];
-    let mut proj = vec![0.0];
-    for y in 0..12 {
+    let mut proj = vec![];
+    for y in 0..15 {
         let be = m1_rd + m3_rd;
         let be = be * Pow::pow(1.0 + READ_COST_UP, y);
         proj.push(be);
@@ -227,8 +227,8 @@ pub fn ben_mt_disconn(tras: &PeaAssVar) -> Vec<f32> {
     let m3_ex = m3_cn * M3_DISCON_COST;
 
     //let mut proj = vec![0.0, 0.0, 0.0];
-    let mut proj = vec![0.0];
-    for y in 0..12 {
+    let mut proj = vec![];
+    for y in 0..15 {
         let be = m1_ex + m3_ex;
         let be = be * 200.0;
         let be = be * Pow::pow(1.0 + DISCON_COST_UP, y);
@@ -253,8 +253,8 @@ pub fn ben_tou_sell(tras: &PeaAssVar) -> Vec<f32> {
     let m1p_y = m1p_s / 12.0;
     let m3p_y = m3p_s / 12.0;
     //let mut proj = vec![0.0, 0.0, 0.0];
-    let mut proj = vec![0.0];
-    for _y in 0..12 {
+    let mut proj = vec![];
+    for _y in 0..15 {
         let be = m1p_y + m3p_y;
         proj.push(be);
     }
@@ -271,8 +271,8 @@ pub fn ben_tou_read(tras: &PeaAssVar) -> Vec<f32> {
     let m1_rd = m1p * TOU_READ_COST;
     let m3_rd = m3p * TOU_READ_COST;
     //let mut proj = vec![0.0, 0.0, 0.0];
-    let mut proj = vec![0.0];
-    for y in 0..12 {
+    let mut proj = vec![];
+    for y in 0..15 {
         let be = m1_rd + m3_rd;
         let be = be * Pow::pow(1.0 + TOU_COST_UP, y);
         proj.push(be);
@@ -288,8 +288,8 @@ pub fn ben_tou_update(tras: &PeaAssVar) -> Vec<f32> {
     let m1_rd = m1p * TOU_UPDATE_COST;
     let m3_rd = m3p * TOU_UPDATE_COST;
     //let mut proj = vec![0.0, 0.0, 0.0];
-    let mut proj = vec![0.0];
-    for y in 0..12 {
+    let mut proj = vec![];
+    for y in 0..15 {
         let be = m1_rd + m3_rd;
         let be = be * Pow::pow(1.0 + TOU_COST_UP, y);
         proj.push(be);
@@ -306,7 +306,7 @@ pub fn ben_outage_labor(tras: &PeaAssVar) -> Vec<f32> {
     let hr = hr * OUT_MT_HOUR_YEAR;
     let ex = hr * LABOR_COST_HOUR * 5.0;
     //let mut proj = vec![0.0, 0.0, 0.0];
-    let mut proj = vec![0.0];
+    let mut proj = vec![];
     for y in 0..12 {
         let be = ex;
         let be = be * Pow::pow(1.0 + ENGY_GRW_RATE, y);
@@ -323,8 +323,8 @@ pub fn ben_reduce_complain(tras: &PeaAssVar) -> Vec<f32> {
     let hr = tras.v[VarType::NoMet1Ph.tousz()].v + tras.v[VarType::NoMet3Ph.tousz()].v;
     let ex = hr * CALL_CENTER_COST_MT;
     //let mut proj = vec![0.0, 0.0, 0.0];
-    let mut proj = vec![0.0];
-    for y in 0..12 {
+    let mut proj = vec![];
+    for y in 0..15 {
         let be = ex;
         let be = be * Pow::pow(1.0 + CALL_CENTER_COST_UP, y);
         proj.push(be);
@@ -340,7 +340,7 @@ pub fn ben_asset_value(tras: &PeaAssVar) -> Vec<f32> {
     let esi = 0f32;
     let ass = (m1i + m3i + txi + esi) * ASSET_WORTH_RATIO;
     //let mut proj = vec![0.0, 0.0, 0.0];
-    let mut proj = vec![0.0];
+    let mut proj = vec![];
     for _y in 0..11 {
         proj.push(0f32);
     }
@@ -357,8 +357,8 @@ pub fn ben_model_entry(tras: &PeaAssVar) -> Vec<f32> {
     let ent_ex = ent_cn * MODEL_ENTRY_COST;
 
     //let mut proj = vec![0.0, 0.0, 0.0];
-    let mut proj = vec![0.0];
-    for y in 0..12 {
+    let mut proj = vec![];
+    for y in 0..15 {
         let be = ent_ex;
         let be = be * Pow::pow(1.0 + CALL_CENTER_COST_UP, y);
         proj.push(be);
@@ -456,7 +456,7 @@ pub fn ben_bess_calc(
         let mut subcst = Vec::<SubYearBenInfo>::new();
         for (i, v) in cst.iter().enumerate() {
             let fa = v / Pow::pow(1f64 + r as f64, i as f64);
-            let be = if i < 12 {
+            let be = if i < 15 {
                 v * Pow::pow(1.03f64, i as f64)
             } else {
                 0f64

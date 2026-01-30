@@ -92,11 +92,34 @@ impl PeaAssVar {
                 SumType::Min => v.v = v.v.min(o.v),
             }
         }
-        for (vy, oy) in self.vy.iter_mut().zip(o.vy.iter()) {
+        for (v, (vy, oy)) in self.v.iter().zip(self.vy.iter_mut().zip(o.vy.iter())) {
             if vy.is_empty() && oy.len() > vy.len() {
+                vy.retain(|&_| false);
                 let mut oya = oy.clone();
                 vy.append(&mut oya);
-            } else if vy.len() == oy.len() {
+            } else if vy.len() == oy.len() && let SumType::Sum = v.s {
+                for (vv, ov) in vy.iter_mut().zip(oy.iter()) {
+                    *vv += *ov;
+                }
+            }
+        }
+    }
+    pub fn add_ex(&mut self, o: &PeaAssVar, x: &[usize]) {
+        for (i,(v, o)) in self.v.iter_mut().zip(o.v.iter()).enumerate() {
+            if x.contains(&i) { continue; }
+            match v.s {
+                SumType::Sum => v.v += o.v,
+                SumType::Max => v.v = v.v.max(o.v),
+                SumType::Min => v.v = v.v.min(o.v),
+            }
+        }
+        for (i,(v, (vy, oy))) in self.v.iter().zip(self.vy.iter_mut().zip(o.vy.iter())).enumerate() {
+            if vy.is_empty() && oy.len() > vy.len() {
+                vy.retain(|&_| false);
+                let mut oya = oy.clone();
+                vy.append(&mut oya);
+            } else if vy.len() == oy.len() && let SumType::Sum = v.s {
+                if x.contains(&i) { continue; }
                 for (vv, ov) in vy.iter_mut().zip(oy.iter()) {
                     *vv += *ov;
                 }
